@@ -2,31 +2,53 @@
 
 # terraform.tfvars
 /* 
-name = "" # Name of the usage
-env = "" # Staging, production or testing
+app_name = "" # Name of the usage
+app_env = "" # Staging, production or testing
+availability_zones = [] # List of availability zones
+public_subnets = [] # List of public subnets
+private_subnets = [] # List of public subnets
 */
 
-########## Enviroment Variable ##########
-variable "name" {
+# variables.tf
+/*
+variable "app_name" {
   type     = string
   nullable = false
 }
 
-variable "env" {
+variable "app_env" {
   type     = string
   nullable = false
 }
+
+variable "vpc_cidr" {
+  type    = string
+  default = "10.0.0.0/16"
+}
+
+variable "availability_zones" {
+  type        = list(any)
+}
+
+variable "public_subnets" {
+  type        = list(any)
+}
+
+variable "private_subnets" {
+  type        = list(any)
+}
+*/
 
 ########## Create VPC ##########
 resource "aws_vpc" "main" {
-  cidr_block           = "10.0.0.0/16" # vpc cidr block
+  cidr_block           = var.vpc_cidr
   instance_tenancy     = "default"
   enable_dns_support   = true
   enable_dns_hostnames = true
 
   tags = {
-    Name = "${var.name}-vpc"
-    env  = var.env
+    Name = "${var.app_name}-vpc"
+    env  = var.app_env
   }
 }
 
@@ -35,30 +57,34 @@ resource "aws_internet_gateway" "main" {
   vpc_id = aws_vpc.main.id # attach to vpc automatically
 
   tags = {
-    Name = "${var.name}-igw"
-    env  = var.env
+    Name = "${var.app_name}-igw"
+    env  = var.app_env
   }
 }
 
 ########## Create Subnets ##########
 resource "aws_subnet" "public" {
   vpc_id                  = aws_vpc.main.id
-  cidr_block              = "10.0.1.0/24" # subnet cidr block
+  count                   = length(var.public_subnets)
+  cidr_block              = element(var.public_subnets, count.index)
+  availability_zone       = element(var.availability_zones, count.index)
   map_public_ip_on_launch = true
 
   tags = {
-    Name = "public-subnet"
-    env  = var.env
+    Name = "public-subnet-${count.index + 1}"
+    env  = var.app_env
   }
 }
 
 resource "aws_subnet" "private" {
-  vpc_id     = aws_vpc.main.id
-  cidr_block = "10.0.2.0/24" # subnet cidr block
+  vpc_id            = aws_vpc.main.id
+  count             = length(var.private_subnets)
+  cidr_block        = element(var.private_subnets, count.index)
+  availability_zone = element(var.availability_zones, count.index)
 
   tags = {
-    Name = "private-subnet"
-    env  = var.env
+    Name = "private-subnet-${count.index + 1}"
+    env  = var.app_env
   }
 }
 
@@ -69,7 +95,7 @@ resource "aws_default_route_table" "public" { # Do not modify default route tabl
 
   tags = {
     Name = "default"
-    env  = var.env
+    env  = var.app_env
   }
 }
 
@@ -83,12 +109,13 @@ resource "aws_route_table" "public" {
 
   tags = {
     Name = "public-route"
-    env  = var.env
+    env  = var.app_env
   }
 }
 
 resource "aws_route_table_association" "public" {
-  subnet_id      = aws_subnet.public.id
+  count          = length(var.public_subnets)
+  subnet_id      = element(aws_subnet.public.*.id, count.index)
   route_table_id = aws_route_table.public.id
 }
 
@@ -98,11 +125,12 @@ resource "aws_route_table" "private" {
 
   tags = {
     Name = "private-route"
-    env  = var.env
+    env  = var.app_env
   }
 }
 
 resource "aws_route_table_association" "private" {
-  subnet_id      = aws_subnet.private.id
+  count          = length(var.private_subnets)
+  subnet_id      = element(aws_subnet.private.*.id, count.index)
   route_table_id = aws_route_table.private.id
 }
