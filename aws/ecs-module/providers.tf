@@ -1,1 +1,0 @@
-# priovider your own provider
