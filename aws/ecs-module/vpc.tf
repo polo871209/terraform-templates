@@ -1,43 +1,4 @@
-# VPC with two subnet public/private
-
-# terraform.tfvars
-/* 
-app_name = "" # Name of the usage
-app_env = "" # Staging, production or testing
-availability_zones = [] # List of availability zones
-public_subnets = [] # List of public subnets
-private_subnets = [] # List of public subnets
-*/
-
-# variables.tf
-/*
-variable "app_name" {
-  type     = string
-  nullable = false
-}
-
-variable "app_env" {
-  type     = string
-  nullable = false
-}
-
-variable "vpc_cidr" {
-  type    = string
-  default = "10.0.0.0/16"
-}
-
-variable "availability_zones" {
-  type        = list(any)
-}
-
-variable "public_subnets" {
-  type        = list(any)
-}
-
-variable "private_subnets" {
-  type        = list(any)
-}
-*/
+# VPC with mutiple subnet public/private
 
 ########## Create VPC ##########
 resource "aws_vpc" "main" {
@@ -47,8 +8,8 @@ resource "aws_vpc" "main" {
   enable_dns_hostnames = true
 
   tags = {
-    Name = "${var.app_name}-vpc"
-    env  = var.app_env
+    Name        = "${var.app_name}-vpc"
+    Environment = var.app_env
   }
 }
 
@@ -57,8 +18,8 @@ resource "aws_internet_gateway" "main" {
   vpc_id = aws_vpc.main.id # attach to vpc automatically
 
   tags = {
-    Name = "${var.app_name}-igw"
-    env  = var.app_env
+    Name        = "${var.app_name}-igw"
+    Environment = var.app_env
   }
 }
 
@@ -71,8 +32,8 @@ resource "aws_subnet" "public" {
   map_public_ip_on_launch = true
 
   tags = {
-    Name = "public-subnet-${count.index + 1}"
-    env  = var.app_env
+    Name        = "public-subnet-${count.index + 1}"
+    Environment = var.app_env
   }
 }
 
@@ -83,8 +44,8 @@ resource "aws_subnet" "private" {
   availability_zone = element(var.availability_zones, count.index)
 
   tags = {
-    Name = "private-subnet-${count.index + 1}"
-    env  = var.app_env
+    Name        = "private-subnet-${count.index + 1}"
+    Environment = var.app_env
   }
 }
 
@@ -94,8 +55,8 @@ resource "aws_default_route_table" "public" { # Do not modify default route tabl
   route                  = []
 
   tags = {
-    Name = "default"
-    env  = var.app_env
+    Name        = "${var.app_name}-vpc-default"
+    Environment = var.app_env
   }
 }
 
@@ -108,8 +69,8 @@ resource "aws_route_table" "public" {
   }
 
   tags = {
-    Name = "public-route"
-    env  = var.app_env
+    Name        = "${var.app_name}-public"
+    Environment = var.app_env
   }
 }
 
@@ -124,7 +85,7 @@ resource "aws_route_table" "private" {
   route  = []
 
   tags = {
-    Name = "private-route"
+    Name = "${var.app_name}-private"
     env  = var.app_env
   }
 }
