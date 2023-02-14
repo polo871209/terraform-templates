@@ -1,7 +1,7 @@
 # VPC with mutiple subnet public/private
 
 ########## Create VPC ##########
-resource "aws_vpc" "main" {
+resource "aws_vpc" "vpc" {
   cidr_block           = var.vpc_cidr
   instance_tenancy     = "default"
   enable_dns_support   = true
@@ -14,8 +14,8 @@ resource "aws_vpc" "main" {
 }
 
 ########## Internate gateway ##########
-resource "aws_internet_gateway" "main" {
-  vpc_id = aws_vpc.main.id # attach to vpc automatically
+resource "aws_internet_gateway" "igw" {
+  vpc_id = aws_vpc.vpc.id # attach to vpc automatically
 
   tags = {
     Name        = "${var.app_name}-igw"
@@ -25,7 +25,7 @@ resource "aws_internet_gateway" "main" {
 
 ########## Create Subnets ##########
 resource "aws_subnet" "public" {
-  vpc_id                  = aws_vpc.main.id
+  vpc_id                  = aws_vpc.vpc.id
   count                   = length(var.public_subnets)
   cidr_block              = element(var.public_subnets, count.index)
   availability_zone       = element(var.availability_zones, count.index)
@@ -38,7 +38,7 @@ resource "aws_subnet" "public" {
 }
 
 resource "aws_subnet" "private" {
-  vpc_id            = aws_vpc.main.id
+  vpc_id            = aws_vpc.vpc.id
   count             = length(var.private_subnets)
   cidr_block        = element(var.private_subnets, count.index)
   availability_zone = element(var.availability_zones, count.index)
@@ -51,7 +51,7 @@ resource "aws_subnet" "private" {
 
 ########## Modify route table ##########
 resource "aws_default_route_table" "public" { # Do not modify default route table
-  default_route_table_id = aws_vpc.main.default_route_table_id
+  default_route_table_id = aws_vpc.vpc.default_route_table_id
   route                  = []
 
   tags = {
@@ -61,11 +61,11 @@ resource "aws_default_route_table" "public" { # Do not modify default route tabl
 }
 
 resource "aws_route_table" "public" {
-  vpc_id = aws_vpc.main.id
+  vpc_id = aws_vpc.vpc.id
 
   route {
     cidr_block = "0.0.0.0/0"
-    gateway_id = aws_internet_gateway.main.id
+    gateway_id = aws_internet_gateway.igw.id
   }
 
   tags = {
@@ -81,7 +81,7 @@ resource "aws_route_table_association" "public" {
 }
 
 resource "aws_route_table" "private" {
-  vpc_id = aws_vpc.main.id
+  vpc_id = aws_vpc.vpc.id
   route  = []
 
   tags = {

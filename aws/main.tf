@@ -21,8 +21,8 @@ provider "aws" {
 }
 
 module "ecs-module" {
-  source  = "./ecs-module"
-  app_name           = "po-test" # Name of the usage
+  source             = "./ecs-module"
+  app_name           = "po"      # Name of the usage
   app_env            = "staging" # Staging, production or testing
   region             = "ap-northeast-3"
   availability_zones = ["ap-northeast-3a", "ap-northeast-3b"] # az in list format

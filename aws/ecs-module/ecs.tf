@@ -1,7 +1,7 @@
 # ECS 
 
 ########## log group ##########
-resource "aws_cloudwatch_log_group" "main" {
+resource "aws_cloudwatch_log_group" "lg" {
   name = "${var.app_name}-${var.app_env}-logs"
 
   tags = {
@@ -10,34 +10,8 @@ resource "aws_cloudwatch_log_group" "main" {
   }
 }
 
-########## Create ECS role ##########
-resource "aws_iam_role" "ecsTaskExecutionRole" {
-  name               = "${var.app_name}-execution-task-role"
-  assume_role_policy = data.aws_iam_policy_document.assume_role_policy.json
-  tags = {
-    Name        = var.app_name
-    Environment = var.app_env
-  }
-}
-
-data "aws_iam_policy_document" "assume_role_policy" {
-  statement {
-    actions = ["sts:AssumeRole"]
-
-    principals {
-      type        = "Service"
-      identifiers = ["ecs-tasks.amazonaws.com"]
-    }
-  }
-}
-
-resource "aws_iam_role_policy_attachment" "ecsTaskExecutionRole_policy" {
-  role       = aws_iam_role.ecsTaskExecutionRole.name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceforEC2Role"
-}
-
 ########## Create Cluster ##########
-resource "aws_ecs_cluster" "main" {
+resource "aws_ecs_cluster" "cluster" {
   name = "${var.app_name}-${var.app_env}-cluster"
 
   setting {
@@ -51,7 +25,7 @@ resource "aws_ecs_cluster" "main" {
 
       log_configuration {
         cloud_watch_encryption_enabled = true
-        cloud_watch_log_group_name     = aws_cloudwatch_log_group.main.name
+        cloud_watch_log_group_name     = aws_cloudwatch_log_group.lg.name
       }
     }
   }
@@ -62,8 +36,8 @@ resource "aws_ecs_cluster" "main" {
   }
 }
 
-resource "aws_ecs_cluster_capacity_providers" "main" {
-  cluster_name = aws_ecs_cluster.main.name
+resource "aws_ecs_cluster_capacity_providers" "provider" {
+  cluster_name = aws_ecs_cluster.cluster.name
 
   capacity_providers = ["FARGATE"]
 
@@ -85,7 +59,7 @@ resource "aws_ecs_task_definition" "backend" {
     [
     {
         "name": "${var.app_name}-backend",
-        "image": "${aws_ecr_repository.main.repository_url}:backend",
+        "image": "${aws_ecr_repository.ecr.repository_url}:backend",
         "cpu": 0,
         "portMappings": [
         {
@@ -104,7 +78,7 @@ resource "aws_ecs_task_definition" "backend" {
         "logConfiguration": {
         "logDriver": "awslogs",
         "options": {
-            "awslogs-group": "${aws_cloudwatch_log_group.main.name}",
+            "awslogs-group": "${aws_cloudwatch_log_group.lg.name}",
             "awslogs-region": "ap-northeast-3",
             "awslogs-stream-prefix": "ecs-task"
         }
@@ -113,10 +87,8 @@ resource "aws_ecs_task_definition" "backend" {
     ]
 
     CONTAINER_DEFINITION
-  # execution_role_arn       = aws_iam_role.ecsTaskExecutionRole.arn
-  # task_role_arn            = aws_iam_role.ecsTaskExecutionRole.arn
-  execution_role_arn = "arn:aws:iam::070221791376:role/po-ecs-role"
-  task_role_arn      = "arn:aws:iam::070221791376:role/po-ecs-role"
+  execution_role_arn       = aws_iam_role.ecsTaskExecutionRole.arn
+  task_role_arn            = aws_iam_role.ecsTaskExecutionRole.arn
   runtime_platform {
     operating_system_family = "LINUX"
   }
@@ -130,7 +102,7 @@ resource "aws_ecs_task_definition" "backend" {
 ########## ECS service ##########
 resource "aws_ecs_service" "aws-ecs-service" {
   name                 = "${var.app_name}-${var.app_env}-ecs-service"
-  cluster              = aws_ecs_cluster.main.id
+  cluster              = aws_ecs_cluster.cluster.id
   task_definition      = "${aws_ecs_task_definition.backend.family}:${aws_ecs_task_definition.backend.revision}"
   launch_type          = "FARGATE"
   scheduling_strategy  = "REPLICA"
@@ -154,8 +126,9 @@ resource "aws_ecs_service" "aws-ecs-service" {
   depends_on = [aws_lb_listener.listener]
 }
 
+########## security group ##########
 resource "aws_security_group" "service_security_group" {
-  vpc_id = aws_vpc.main.id
+  vpc_id = aws_vpc.vpc.id
 
   ingress {
     from_port       = 0

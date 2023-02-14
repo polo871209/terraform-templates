@@ -1,6 +1,6 @@
 # alb
 resource "aws_security_group" "alb-sg" {
-  vpc_id = aws_vpc.main.id
+  vpc_id = aws_vpc.vpc.id
 
   ingress {
     from_port        = var.container_port
@@ -23,7 +23,7 @@ resource "aws_security_group" "alb-sg" {
   }
 }
 
-resource "aws_alb" "main" {
+resource "aws_alb" "alb" {
   name               = "${var.app_name}-${var.app_env}-alb"
   internal           = false
   load_balancer_type = "application"
@@ -41,7 +41,7 @@ resource "aws_lb_target_group" "target_group" {
   port        = var.container_port
   protocol    = "HTTP"
   target_type = "ip"
-  vpc_id      = aws_vpc.main.id
+  vpc_id      = aws_vpc.vpc.id
 
   #   health_check {
   #     healthy_threshold   = "3"
@@ -60,7 +60,7 @@ resource "aws_lb_target_group" "target_group" {
 }
 
 resource "aws_lb_listener" "listener" {
-  load_balancer_arn = aws_alb.main.id
+  load_balancer_arn = aws_alb.alb.id
   port              = var.container_port
   protocol          = "HTTP"
 
